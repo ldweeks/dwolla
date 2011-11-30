@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * @file
+ * Implements Dwolla payment services for use in Drupal Commerce.
+ */
+
+/**
+ * Implements hook_commerce_payment_method_info().
+ *
+ * This hook will define the Dwolla payment method
+ */
+function dwolla_commerce_payment_method_info() {
+  $payment_methods = array();
+
+  $payment_methods['dwolla'] = array(
+    'base' => 'dwolla',
+    'title' => t('Dwolla'),
+    'short_title' => t('Dwolla'),
+    'display_title' => t('Dwolla'),
+    'description' => t('Integrates Dwolla payment system'),
+    'terminal' => FALSE,
+    'offsite' => TRUE,
+    'offsite_autoredirect' => TRUE,
+
+  );
+
+  return $payment_methods;
+}
