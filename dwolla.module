@@ -27,3 +27,55 @@ function dwolla_commerce_payment_method_info() {
 
   return $payment_methods;
 }
+
+/**
+ * Payment method callback: settings form.
+ *
+ * Returns form elements for the payment method's settings form included
+ * as part of the payment method's enabling action in Rules
+ */
+function dwolla_settings_form($settings = NULL) {
+  $form = array();
+
+  $settings = (array) $settings + array(
+    'accountid' => '',
+    'apikey' => '',
+    'apisecret' => '',
+    'account' => 'live',
+  );
+
+  // BASIC settings
+  $form['accountid'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Dwolla Account ID'),
+    '#description' => t('Dwolla account ID receiving the funds. Format : XXX-XXX-XXXX.'),
+    '#default_value' => $settings['apikey'],
+  );
+  $form['apikey'] = array(
+    '#type' => 'textfield',
+    '#title' => t('API Key'),
+    '#description' => t('The key used for the Dwolla API'),
+    '#default_value' => $settings['apikey'],
+  );
+  $form['apisecret'] = array(
+    '#type' => 'textfield',
+    '#title' => t('API Secret'),
+    '#description' => t('The secret code used for the Dwolla API'),
+    '#default_value' => $settings['apisecret'],
+  );
+  $form['account'] = array(
+    '#type' => 'radios',
+    '#title' => t('Dwolla Server'),
+    '#options' => array(
+      'live' => ('Live'),
+      'test' => ('Test'),
+    ),
+    '#default_value' => $settings['account'],
+    '#description' => t('Perform transactions on the live or test server. The test server will only work for developers with Dwolla test accounts.'),
+  );
+  // @TODO: LAYOUT settings
+  $form['#submit'][] = 'dwolla_settings_form_submit';
+
+  return $form;
+}
+
