@@ -49,7 +49,7 @@ function dwolla_settings_form($settings = NULL) {
     '#type' => 'textfield',
     '#title' => t('Dwolla Account ID'),
     '#description' => t('Dwolla account ID receiving the funds. Format : XXX-XXX-XXXX.'),
-    '#default_value' => $settings['apikey'],
+    '#default_value' => $settings['accountid'],
   );
   $form['apikey'] = array(
     '#type' => 'textfield',
@@ -77,5 +77,42 @@ function dwolla_settings_form($settings = NULL) {
   $form['#submit'][] = 'dwolla_settings_form_submit';
 
   return $form;
+}
+
+/**
+ * Payment method callback: redirect form
+ *
+ * returns form elements that should be submitted to the redirected
+ * payment service
+ */
+function dwolla_redirect_form($form, &$form_state, $order, $payment_method) {
+  // Return an error if accountid is not set.
+  if (empty($payment_method['settings']['accountid'])) {
+    drupal_set_message(t('Dwolla Account ID has not been specified.'), 'error');
+    return array();
+  }
+  // Return an error if apikey is not set.
+  if (empty($payment_method['settings']['apikey'])) {
+    drupal_set_message(t('Dwolla API key needs to be set.'), 'error');
+    return array();
+  }
+  // Return an error if apisecret is not set.
+  if (empty($payment_method['settings']['apisecret'])) {
+    drupal_set_message(t('Dwolla API Secret needs to be set.'), 'error');
+    return array();
+  }
+
+  $settings = array(
+    // Return to the previous page when the payment is cancelled.
+    'cancel_return' => url('checkout/' . $order->order_id . '/payment/back/' . $order->data['payment_redirect_key'], array('absolute' => TRUE)),
+
+    // Return to the payment redirect page for processing successful payments.
+    'return' => url('checkout/' . $order->order_id . '/payment/return/' . $order->data['payment_redirect_key'], array('absolute' => TRUE)),
+
+    // Specify the current payment method instance ID in the notify_url.
+    'payment_method' => $payment_method['instance_id'],
+  );
+
+  return dwolla_order_form($form, $form_state, $order, $payment_method['settings'] + $settings);
 }
 
