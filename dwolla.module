@@ -19,9 +19,9 @@ function dwolla_commerce_payment_method_info() {
     'short_title' => t('Dwolla'),
     'display_title' => t('Dwolla'),
     'description' => t('Integrates Dwolla payment system'),
-    'terminal' => FALSE,
+    'active' => TRUE,
     'offsite' => TRUE,
-    'offsite_autoredirect' => TRUE,
+    'offsite_autoredirect' => FALSE,
 
   );
 
@@ -50,18 +50,21 @@ function dwolla_settings_form($settings = NULL) {
     '#title' => t('Dwolla Account ID'),
     '#description' => t('Dwolla account ID receiving the funds. Format : XXX-XXX-XXXX.'),
     '#default_value' => $settings['accountid'],
+    '#required' => TRUE,
   );
   $form['apikey'] = array(
     '#type' => 'textfield',
     '#title' => t('API Key'),
     '#description' => t('The key used for the Dwolla API'),
     '#default_value' => $settings['apikey'],
+    '#required' => TRUE,
   );
   $form['apisecret'] = array(
     '#type' => 'textfield',
     '#title' => t('API Secret'),
     '#description' => t('The secret code used for the Dwolla API'),
     '#default_value' => $settings['apisecret'],
+    '#required' => TRUE,
   );
   $form['account'] = array(
     '#type' => 'radios',
@@ -113,6 +116,81 @@ function dwolla_redirect_form($form, &$form_state, $order, $payment_method) {
     'payment_method' => $payment_method['instance_id'],
   );
 
-  return dwolla_order_form($form, $form_state, $order, $payment_method['settings'] + $settings);
+  dwolla_build_redirect_form($form, $form_state, $order, $payment_method['settings'] + $settings);
+}
+
+/**
+ * Helper function for the redirect_form callback.
+ * Generate the CheckoutID and redirect to dwolla site
+ */
+function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
+  global $user;
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+
+  // Get financial info
+  $currency_code = $wrapper->commerce_order_total->currency_code->value();
+  $amount = $wrapper->commerce_order_total->amount->value();
+  $customer_name = $wrapper->commerce_customer_billing->commerce_customer_address->name_line->value();
+
+  // Build the data array
+  if($settings['account'] == 'test') {
+    $test = 'true';
+  } else {
+    $test = 'false';
+  }
+  
+  $data = array(
+    // General parameters
+    'Key' => $settings['apikey'],
+    'Secret' => $settings['apisecret'],
+    'DestinationId' => $settings['accountid'],
+    'OrderId' => $order->order_number,
+    'Amount' =>  $amount,
+    'Test' => $test,
+
+    // Feedback URLs
+    'Redirect' => $settings['return'],
+
+    // Layout
+    'Name' => t('@store', array('@store' => variable_get('site_name', url('<front>', array('absolute' => TRUE))))),
+    'Description' => t('Order @order_number at @store', array('@order_number' => $order->order_number, '@store' => variable_get('site_name', url('<front>', array('absolute' => TRUE))))),
+    
+  );
+
+  $post_url = 'https://www.dwolla.com/payment/pay';
+  
+  //traverse array and prepare data for posting
+  foreach ( $data as $key => $value) {
+    if (!empty($value)) {
+      $value = trim($value);
+      $post_items[] = $key . '=' . $value;
+    }
+  }
+   
+  //create the final string to be posted using implode()
+  $post_string = implode ('&', $post_items);
+  
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0); 
+  curl_setopt($ch, CURLOPT_URL, $post_url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_POST, 1);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $post_string);
+  $result = curl_exec($ch); 
+  
+  if(curl_errno($ch))
+    print curl_error($ch);
+  else
+    curl_close($ch);
+    
+  $response = $result;
+  // Getting the checkout id from the response
+  $i = strpos($response,"checkout/");
+  $checkout_id = substr($response, $i + 9, 36);
+  
+  // Redirect to dwolla with checkout id
+  $url = 'https://www.dwolla.com/payment/checkout/' . $checkout_id;
+  header('Location: ' . $url . '');
+  
 }
 
