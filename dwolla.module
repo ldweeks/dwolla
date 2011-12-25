@@ -185,12 +185,11 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
     
   $response = $result;
   // Getting the checkout id from the response
-  $i = strpos($response,"checkout/");
-  $checkout_id = substr($response, $i + 9, 36);
+  //  $checkout_id = 
   
   // Redirect to dwolla with checkout id
-  $url = 'https://www.dwolla.com/payment/checkout/' . $checkout_id;
-  header('Location: ' . $url . '');
+  //  $url = 'https://www.dwolla.com/payment/checkout/' . $checkout_id;
+  //  header('Location: ' . $url . '');
   
 }
 
