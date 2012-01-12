@@ -166,7 +166,10 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
       $post_items[] = $key . '=' . $value;
     }
   }
-   
+  
+  if(!function_exists("curl_init")) 
+    dwolla_error($order, $settings, "cURL extension is not installed.");
+  
   //create the final string to be posted using implode()
   $post_string = implode ('&', $post_items);
   
@@ -178,33 +181,45 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
   curl_setopt($ch, CURLOPT_POSTFIELDS, $post_string);
   $result = curl_exec($ch); 
   
-  if(curl_errno($ch))
-    print curl_error($ch);
-  else
+  if(curl_errno($ch)){
+    $message = curl_error($ch);
+    dwolla_error($order, $settings, $message);
+  }
+  else{
     curl_close($ch);
-    
+  }
   $response = $result;
-  // Getting the checkout id from the response
-  //  $checkout_id = 
-  
-  // Redirect to dwolla with checkout id
-  //  $url = 'https://www.dwolla.com/payment/checkout/' . $checkout_id;
-  //  header('Location: ' . $url . '');
-  
+
+  if(strstr($response, "Invalid+application+credentials")){
+    $message = "Invalid Application Credentials.";
+    dwolla_error($order, $settings, $message);
+  }
+  else if(strstr($response, "error")){
+    $message = ""; //Other Error
+    dwolla_error($order, $settings, $message);
+  }
+  else{
+    // Getting the checkout id from the response
+    $i = strpos($response,"checkout/");
+    $checkout_id = substr($response, $i + 9, 36);
+    
+    // Redirect to dwolla with checkout id
+    $url = 'https://www.dwolla.com/payment/checkout/' . $checkout_id;
+    header('Location: ' . $url . '');
+  }
 }
 
-function dwolla_error($order, $settings){
-
-    /*
-    * Revert the order back to Cart when an error occurs
-    **/
-    $order_state = commerce_order_state_load('cart');
-    commerce_order_status_update($order, $order_state['default_status'], FALSE, TRUE, t('Order state updated due to error : .'));
-    
-    /*
-    * Inform the user of the error and redirect to the review page
-    **/
-    drupal_set_message(t('There was a problem sending the order to Dwolla, please try again.'),'error');
-    drupal_goto('checkout/'.$order->order_number);
-    exit;
+function dwolla_error($order, $settings, $message){
+  /*
+  * Revert the order back to Cart when an error occurs
+  **/
+  $order_state = commerce_order_state_load('cart');
+  commerce_order_status_update($order, $order_state['default_status'], FALSE, TRUE, t('Order state updated due to error : .'));
+  
+  /*
+  * Inform the user of the error and redirect to the review page
+  **/
+  drupal_set_message(t('@message There was a problem sending the order to Dwolla, please try again.', array('@message' => $message)),'error');
+  drupal_goto('checkout/'.$order->order_number);
+  exit;
 }
