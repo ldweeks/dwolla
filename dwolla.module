@@ -20,6 +20,7 @@ function dwolla_commerce_payment_method_info() {
     'display_title' => t('Dwolla'),
     'description' => t('Integrates Dwolla payment system'),
     'active' => TRUE,
+    'terminal' => FALSE,
     'offsite' => TRUE,
     'offsite_autoredirect' => FALSE,
 
@@ -133,9 +134,10 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
   $customer_name = $wrapper->commerce_customer_billing->commerce_customer_address->name_line->value();
 
   // Build the data array
-  if($settings['account'] == 'test') {
+  if ($settings['account'] == 'test') {
     $test = 'true';
-  } else {
+  } 
+  else {
     $test = 'false';
   }
   
@@ -160,18 +162,18 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
   $post_url = 'https://www.dwolla.com/payment/pay';
   
   //traverse array and prepare data for posting
-  foreach ( $data as $key => $value) {
+  foreach ($data as $key => $value) {
     if (!empty($value)) {
       $value = trim($value);
       $post_items[] = $key . '=' . $value;
     }
   }
   
-  if(!function_exists("curl_init")) 
+  if (!function_exists("curl_init")) 
     dwolla_error($order, $settings, "cURL extension is not installed.");
   
   //create the final string to be posted using implode()
-  $post_string = implode ('&', $post_items);
+  $post_string = implode('&', $post_items);
   
   $ch = curl_init();
   curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0); 
@@ -181,7 +183,7 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
   curl_setopt($ch, CURLOPT_POSTFIELDS, $post_string);
   $result = curl_exec($ch); 
   
-  if(curl_errno($ch)){
+  if (curl_errno($ch)) {
     $message = curl_error($ch);
     dwolla_error($order, $settings, $message);
   }
@@ -190,17 +192,17 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
   }
   $response = $result;
 
-  if(strstr($response, "Invalid+application+credentials")){
+  if (strstr($response, "Invalid+application+credentials")) {
     $message = "Invalid Application Credentials.";
     dwolla_error($order, $settings, $message);
   }
-  else if(strstr($response, "error")){
+  elseif (strstr($response, "error")) {
     $message = ""; //Other Error
     dwolla_error($order, $settings, $message);
   }
-  else{
+  else {
     // Getting the checkout id from the response
-    $i = strpos($response,"checkout/");
+    $i = strpos($response, "checkout/");
     $checkout_id = substr($response, $i + 9, 36);
     
     // Redirect to dwolla with checkout id
@@ -209,17 +211,66 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
   }
 }
 
-function dwolla_error($order, $settings, $message){
-  /*
-  * Revert the order back to Cart when an error occurs
-  **/
+function dwolla_error($order, $settings, $message) {
+  //Revert the order back to Cart when an error occurs
   $order_state = commerce_order_state_load('cart');
   commerce_order_status_update($order, $order_state['default_status'], FALSE, TRUE, t('Order state updated due to error : .'));
-  
-  /*
-  * Inform the user of the error and redirect to the review page
-  **/
-  drupal_set_message(t('@message There was a problem sending the order to Dwolla, please try again.', array('@message' => $message)),'error');
-  drupal_goto('checkout/'.$order->order_number);
+
+  //Inform the user of the error and redirect to the review page
+  drupal_set_message(t('@message There was a problem sending the order to Dwolla, please try again.', array('@message' => $message)), 'error');
+  drupal_goto('checkout/' . $order->order_number);
   exit;
+}
+
+
+/**
+ * Implements hook_redirect_form_validate().
+ */
+function dwolla_redirect_form_validate($order, $payment_method) {
+  if (isset($_GET['transaction']) && isset($_GET['amount'])) {
+    // Prepare the feedback values sent by Dwolla for processing. We don't use
+    $feedback = array_map('check_plain', $_GET);
+    $feedback = array_change_key_case($feedback, CASE_UPPER);
+
+    // Process the transaction based on the Dwolla parameters received
+    dwolla_process_transaction($order, $payment_method, $feedback);
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Process the payment transaction with the info received from Dwolla
+ *
+ * @param $order
+ *   The loaded order that is being processed
+ * @param $payment_method
+ *   The payment method settings
+ * @param $feedback
+ *   The parameters received from Dwolla regarding the payment
+ */
+function dwolla_process_transaction($order, $payment_method, $feedback) {
+  $transaction = commerce_payment_transaction_new('dwolla', $order->order_id);
+  $payment_status = ($feedback['TRANSACTION'] == 1) ? "Transaction Success" : "Transaction Failed";
+
+  // identifying data
+  $transaction->instance_id = $payment_method['instance_id'];
+  $transaction->remote_id = $feedback['ORDERID'];
+  // payment amount details
+  $transaction->amount = $order->commerce_order_total[LANGUAGE_NONE][0]['amount'];
+  $transaction->currency_code = $order->commerce_order_total[LANGUAGE_NONE][0]['currency_code'];
+  // payment status
+  $transaction->remote_status = $feedback['STATUS'];
+  $transaction->status = $payment_status;
+  $transaction->message = $payment_status;
+  $transaction->payload = $feedback;
+  commerce_payment_transaction_save($transaction);
+  if ($feedback['TRANSACTION'] == 1) {
+    commerce_payment_redirect_pane_previous_page($order);
+  }
+  else {
+    commerce_payment_redirect_pane_next_page($order);
+  }
 }
