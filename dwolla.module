@@ -268,9 +268,9 @@ function dwolla_process_transaction($order, $payment_method, $feedback) {
   $transaction->payload = $feedback;
   commerce_payment_transaction_save($transaction);
   if ($feedback['TRANSACTION'] == 1) {
-    commerce_payment_redirect_pane_previous_page($order);
+    commerce_payment_redirect_pane_next_page($order);
   }
   else {
-    commerce_payment_redirect_pane_next_page($order);
+    commerce_payment_redirect_pane_previous_page($order);
   }
 }
