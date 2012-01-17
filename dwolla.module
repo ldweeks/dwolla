@@ -23,7 +23,6 @@ function dwolla_commerce_payment_method_info() {
     'terminal' => FALSE,
     'offsite' => TRUE,
     'offsite_autoredirect' => FALSE,
-
   );
 
   return $payment_methods;
@@ -267,7 +266,7 @@ function dwolla_process_transaction($order, $payment_method, $feedback) {
   $transaction->message = $payment_status;
   $transaction->payload = $feedback;
   commerce_payment_transaction_save($transaction);
-  if ($feedback['TRANSACTION'] == 1) {
+  if (isset($feedback['TRANSACTION']) && isset($feedback['CHECKOUTID'])) {
     commerce_payment_redirect_pane_next_page($order);
   }
   else {
