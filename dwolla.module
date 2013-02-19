@@ -148,6 +148,9 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
     'Amount' =>  $price,
     'Test' => $test,
 
+    // Allow Guest Checkout
+    'AllowFundingSources' => 'true',
+
     // Feedback URLs
     'Redirect' => $settings['return'],
 
