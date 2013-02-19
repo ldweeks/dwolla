@@ -125,12 +125,11 @@ function dwolla_redirect_form($form, &$form_state, $order, $payment_method) {
  */
 function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
   global $user;
-  $wrapper = entity_metadata_wrapper('commerce_order', $order);
 
   // Get financial info
-  $currency_code = $wrapper->commerce_order_total->currency_code->value();
-  $amount = $wrapper->commerce_order_total->amount->value();
-  $customer_name = $wrapper->commerce_customer_billing->commerce_customer_address->name_line->value();
+  $amount = $order->commerce_order_total[LANGUAGE_NONE][0]['amount'];
+  $currency_code = $order->commerce_order_total[LANGUAGE_NONE][0]['currency_code'];
+  $price = commerce_currency_amount_to_decimal($amount, $currency_code);
 
   // Build the data array
   if ($settings['account'] == 'test') {
@@ -146,7 +145,7 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
     'Secret' => $settings['apisecret'],
     'DestinationId' => $settings['accountid'],
     'OrderId' => $order->order_number,
-    'Amount' =>  $amount,
+    'Amount' =>  $price,
     'Test' => $test,
 
     // Feedback URLs
