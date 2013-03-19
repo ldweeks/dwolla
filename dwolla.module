@@ -267,7 +267,7 @@ function dwolla_process_transaction($order, $payment_method, $feedback) {
 
   // identifying data
   $transaction->instance_id = $payment_method['instance_id'];
-  $transaction->remote_id = $feedback['ORDERID'];
+  $transaction->remote_id = $feedback['TRANSACTION'];
   // payment amount details
   $transaction->amount = $order->commerce_order_total[LANGUAGE_NONE][0]['amount'];
   $transaction->currency_code = $order->commerce_order_total[LANGUAGE_NONE][0]['currency_code'];
