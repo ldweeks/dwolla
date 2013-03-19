@@ -254,7 +254,16 @@ function dwolla_redirect_form_validate($order, $payment_method) {
  */
 function dwolla_process_transaction($order, $payment_method, $feedback) {
   $transaction = commerce_payment_transaction_new('dwolla', $order->order_id);
-  $payment_status = ($feedback['TRANSACTION'] == 1) ? "Transaction Success" : "Transaction Failed";
+
+  // Determine the status of the transaction (success or failure) and set the message accordingly.
+  if ($feedback['POSTBACK'] == 'success') {
+    $payment_status = 'success';
+    $payment_message = t('Transaction successful');
+  }
+  else {
+    $payment_status = 'success';
+    $payment_message = t('Transaction failed');
+  }
 
   // identifying data
   $transaction->instance_id = $payment_method['instance_id'];
@@ -265,7 +274,7 @@ function dwolla_process_transaction($order, $payment_method, $feedback) {
   // payment status
   $transaction->remote_status = $feedback['STATUS'];
   $transaction->status = $payment_status;
-  $transaction->message = $payment_status;
+  $transaction->message = $payment_message;
   $transaction->payload = $feedback;
   commerce_payment_transaction_save($transaction);
   if (isset($feedback['TRANSACTION']) && isset($feedback['CHECKOUTID'])) {
