@@ -154,6 +154,7 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
     'Total' => $price,
     'Tax' => '0',
     'Shipping' => '0',
+    'Notes' => t('Order @order_number at @store', array('@order_number' => $order->order_number, '@store' => variable_get('site_name', url('<front>', array('absolute' => TRUE))))),
 
     'OrderItems' => array(
       array(
@@ -166,49 +167,42 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
     )
   );
 
-  $post_url = 'https://www.dwolla.com/payment/request';
+  $post_url = 'http://requestb.in/1jyqi0i1';
+  //$post_url = 'https://www.dwolla.com/payment/request';
 
   $post_string = json_encode($data);
+  $headers = array('Accept: application/json', 'Content-Type: application/json;charset=UTF-8', 'Content-Length: ' . strlen($post_string));
 
   if (!function_exists("curl_init"))
     dwolla_error($order, $settings, "cURL extension is not installed.");
 
   $ch = curl_init();
-  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
   curl_setopt($ch, CURLOPT_URL, $post_url);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-  curl_setopt($ch, CURLOPT_POST, 1);
+  curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
   curl_setopt($ch, CURLOPT_POSTFIELDS, $post_string);
-  $headers = array('Accept: application/json', 'Content-Type: application/json;charset=UTF-8');
-  $headers[] = 'Content-Length: ' . strlen($data);
+  curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+  curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+  curl_setopt($ch, CURLOPT_HEADER, false);
   curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
   $result = curl_exec($ch);
 
   if (curl_errno($ch)) {
     $message = curl_error($ch);
     dwolla_error($order, $settings, $message);
-  }
-  else{
+  } else {
     curl_close($ch);
   }
-  $response = $result;
 
-  if (strstr($response, "Invalid+application+credentials")) {
-    $message = "Invalid Application Credentials.";
-    dwolla_error($order, $settings, $message);
-  }
-  elseif (strstr($response, "error")) {
-    $message = ""; //Other Error
-    dwolla_error($order, $settings, $message);
-  }
-  else {
+  $response = json_decode($result, true);
+  if ($response['Result'] != 'Success') {
+    dwolla_error($order, $settings, $response['Message']);
+  } else {
     // Getting the checkout id from the response
-    $i = strpos($response, "checkout/");
-    $checkout_id = substr($response, $i + 9, 36);
-
     // Redirect to dwolla with checkout id
-    $url = 'https://www.dwolla.com/payment/checkout/' . $checkout_id;
-    header('Location: ' . $url . '');
+    $url = 'https://www.dwolla.com/payment/checkout/' . $response['CheckoutId'];
+    header('Location: ' . $url);
   }
 }
 
