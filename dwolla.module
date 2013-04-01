@@ -167,8 +167,7 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
     )
   );
 
-  $post_url = 'http://requestb.in/1jyqi0i1';
-  //$post_url = 'https://www.dwolla.com/payment/request';
+  $post_url = 'https://www.dwolla.com/payment/request';
 
   $post_string = json_encode($data);
   $headers = array('Accept: application/json', 'Content-Type: application/json;charset=UTF-8', 'Content-Length: ' . strlen($post_string));
