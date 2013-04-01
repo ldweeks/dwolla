@@ -140,41 +140,38 @@ function dwolla_build_redirect_form($form, &$form_state, $order, $settings) {
   }
 
   $data = array(
-    // General parameters
     'Key' => $settings['apikey'],
-    'Secret' => $settings['apisecret'],
-    'DestinationId' => $settings['accountid'],
-    'OrderId' => $order->order_number,
-    'Amount' =>  $price,
-    'Test' => $test,
+    'Secret' => $settings['apisecret'],
+  
+    'Redirect' => $settings['return'],
+    'AllowFundingSources' => 'true',
+    'Test' => $test,
+    'OrderId' => $order->order_number,
 
-    // Allow Guest Checkout
-    'AllowFundingSources' => 'true',
+    'PurchaseOrder' => array(
+      'DestinationId' => $settings['accountid'],
+    
+      'Total' => $price,
+      'Tax' => '0',
+      'Shipping' => '0',
 
-    // Feedback URLs
-    'Redirect' => $settings['return'],
-
-    // Layout
-    'Name' => t('@store', array('@store' => variable_get('site_name', url('<front>', array('absolute' => TRUE))))),
-    'Description' => t('Order @order_number at @store', array('@order_number' => $order->order_number, '@store' => variable_get('site_name', url('<front>', array('absolute' => TRUE))))),
-
+      'OrderItems' => array(
+        array(
+          'Name' => t('@store', array('@store' => variable_get('site_name', url('<front>', array('absolute' => TRUE))))),
+          'Description' => t('Order @order_number at @store', array('@order_number' => $order->order_number, '@store' => variable_get('site_name', url('<front>', array('absolute' => TRUE))))),
+          'Price' => $price,
+          'Quantity' => '1'
+        )
+      )
+    )
   );
 
   $post_url = 'https://www.dwolla.com/payment/request';
 
-  //traverse array and prepare data for posting
-  foreach ($data as $key => $value) {
-    if (!empty($value)) {
-      $value = trim($value);
-      $post_items[] = $key . '=' . $value;
-    }
-  }
+  $post_string = json_encode($data);
 
   if (!function_exists("curl_init"))
     dwolla_error($order, $settings, "cURL extension is not installed.");
-
-  //create the final string to be posted using implode()
-  $post_string = implode('&', $post_items);
 
   $ch = curl_init();
   curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
